@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16
+    volumes:
+      - ./db/initdb:/docker-entrypoint-initdb.d
+      - ./dockerdata/maindb:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_user
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+      TZ: Asia/Tokyo
+    ports:
+      - 15432:5432
+
+  bucket:
+    image: minio/minio:RELEASE.2024-04-28T17-53-50Z
+    command:
+      [
+        "server",
+        "/data",
+        "--address",
+        ":8000",
+        "--console-address",
+        ":8001"
+      ]
+    environment:
+      MINIO_ROOT_USER: app_user
+      MINIO_ROOT_PASSWORD: app_user
+    volumes:
+      - ./dockerdata/bucket:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  tempapp:
+    container_name: tempapp
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - tempapp.env
+
+  schemaspy:
+    image: schemaspy/schemaspy:6.2.4@sha256:08290ff34c0fa4c1b28af555fbedf755159e42d02651a987e6077cb40a06f1ff
+    platform: linux/amd64
+    container_name: schemaspy
+    volumes:
+      - ./docs/schemaspy:/output
+      - ./schemaspy.properties:/schemaspy.properties
+    profiles:
+      - build
+    depends_on:
+      - db
